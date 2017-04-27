@@ -5,6 +5,7 @@
 //				 - Ntfs Streams https://github.com/RichardD2/NTFS-Streams
 
 using System;
+using System.Diagnostics;
 using System.Configuration;
 using System.IO;
 using log4net;
@@ -50,12 +51,28 @@ namespace DocBleachShell
 			{
 				Logger.Error("Unable to rename document: " + FilePath, e);
 			}
-			
+
 			// Call docbleach which will generate doc
-			Helper.LaunchCmd("java -jar \"" + TargetDirectory + "\\docbleach.jar\" -in \"" + TmpDoc + 
-			          "\" -out \"" + Path.GetFileName(FilePath) + "\" > \"" + TargetDirectory + "\\tmp.log\" 2>&1");
-			
-			String Output = File.ReadAllText(TargetDirectory + "\\tmp.log");
+			String Output = "initialized";
+			String bleachBin = "\"" + ConfigurationManager.AppSettings["PathToDocBleach"] + "\"";
+			if (File.Exists(ConfigurationManager.AppSettings["PathToDocBleach"]))
+			{
+				Process p = new Process();
+				p.StartInfo.FileName = ConfigurationManager.AppSettings["PathToDocBleach"];
+				p.StartInfo.Arguments = "-in \"" + TmpDoc + "\" -out \"" + Path.GetFileName(FilePath) + "\"";
+				p.StartInfo.UseShellExecute = false;
+				p.StartInfo.CreateNoWindow = true;
+				p.StartInfo.RedirectStandardOutput = true;
+				p.Start();
+
+				Output = p.StandardOutput.ReadToEnd();
+				p.WaitForExit();
+
+			}
+			else
+			{
+				Logger.Error("Cant find DocBleach at: " + ConfigurationManager.AppSettings["PathToDocBleach"]);
+			}
 			
 			Logger.Debug("DocBleach output: " + Output);
 
@@ -89,7 +106,7 @@ namespace DocBleachShell
 				Logger.Debug("Successfully bleached: " + FilePath);
 			} else
 			{
-				Logger.Debug("Unable to bleach: " + FilePath);
+				Logger.Debug("Unable to bleach: " + FilePath + ", file not found");
 				
 				// No doc, move back.
 				try
